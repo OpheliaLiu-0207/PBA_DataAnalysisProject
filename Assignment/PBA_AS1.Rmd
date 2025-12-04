@@ -1,0 +1,179 @@
+---
+title: "PBA_AS1"
+author: "114078509_Ophelia Liu_劉詠熙"
+output: html_document
+---
+**Loading packages first**
+```{r setup, echo = TRUE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(lubridate)
+require(gapminder)
+library(dplyr)
+library(tidyverse)
+```
+
+# PART I:
+## Question 1
+**Locating the directory & Loading the data**
+```{r}
+getwd()
+my_data <- read.csv("online_retail.csv")
+```
+**Verify the dataset’s dimensions using `head()` and `str()` functions**
+```{r}
+head(my_data)
+str(my_data)
+```
+## Question 2
+**Converting `InvoiceDate` to date class**
+```{r}
+my_data$InvoiceDate <- mdy_hm(my_data$InvoiceDate)
+
+# check the result
+head(my_data$InvoiceDate)
+```
+**Filtering the data and verifying the number of unique `InvoiceNo` entries**
+```{r}
+filtered_data <- my_data %>%
+  filter(month(InvoiceDate) %in% c(7, 8) & year(InvoiceDate) == 2011)
+
+unique_invoices <- length(unique(filtered_data$InvoiceNo))
+cat("The number of unique InvoiceNo entries from July to August 2011:", unique_invoices)
+```
+## Question 3
+**1. Compute the mean of `Quantity` and `UnitPrice`.**
+```{r}
+mean_quantity <- mean(filtered_data$Quantity, na.rm = TRUE)
+mean_unitprice <- mean(filtered_data$UnitPrice, na.rm = TRUE)
+
+cat("The mean of Quantity:", mean_quantity, "\n")
+cat("The mean of UnitPrice:", mean_unitprice, "\n")
+```
+**2. Determine the data types of each column**
+
+The dataset structure shows a mix of data types
+
+- Character variables：`InvoiceNo`, `StockCode`, `Description`, `Country`
+- Numeric variables：`UnitPrice`
+- Integer variables：`Quantity`, `CustomerID`
+- Date-time variable：`InvoiceDate` 
+```{r}
+str(filtered_data)
+```
+**3. Compute the number of unique values in each column.**
+```{r}
+unique_counts <- sapply(filtered_data, function(x) length(unique(x)))
+print(unique_counts)
+```
+## Question 4
+**1. Subset the data for transactions in the U.K., Netherlands, and Australia.**
+```{r}
+uk_data <- filtered_data %>% filter(Country == "United Kingdom")
+netherlands_data <- filtered_data %>% filter(Country == "Netherlands") 
+australia_data <- filtered_data %>% filter(Country == "Australia")
+```
+**2. Report the average and standard deviation of `UnitPrice` for each country.**
+```{r}
+# U.K.
+uk_mean <- mean(uk_data$UnitPrice, na.rm = TRUE)
+uk_sd <- sd(uk_data$UnitPrice, na.rm = TRUE)
+
+# Netherlands
+netherlands_mean <- mean(netherlands_data$UnitPrice, na.rm = TRUE)
+netherlands_sd <- sd(netherlands_data$UnitPrice, na.rm = TRUE)
+
+# Australia
+australia_mean <- mean(australia_data$UnitPrice, na.rm = TRUE)
+australia_sd <- sd(australia_data$UnitPrice, na.rm = TRUE)
+
+# Show Result
+cat("U.K. - Average:", uk_mean, ",Standard deviation:", uk_sd)
+cat("Netherlands - Average:", netherlands_mean, ",Standard deviation:", netherlands_sd)
+cat("Australia - Average:", australia_mean, ",Standard deviation:", australia_sd)
+```
+**3. Report the number of unique transactions and customers in these countries.**
+```{r}
+# U.K.
+uk_transactions <- length(unique(uk_data$InvoiceNo))
+uk_customers <- length(unique(uk_data$CustomerID[!is.na(uk_data$CustomerID)]))
+
+# Netherlands
+netherlands_transactions <- length(unique(netherlands_data$InvoiceNo))
+netherlands_customers <- length(unique(netherlands_data$CustomerID[!is.na(netherlands_data$CustomerID)]))
+
+# Australia
+australia_transactions <- length(unique(australia_data$InvoiceNo))
+australia_customers <- length(unique(australia_data$CustomerID[!is.na(australia_data$CustomerID)]))
+
+# Show Result
+cat("U.K. - Unique transactions:", uk_transactions, ",Unique customers:", uk_customers)
+cat("Netherlands - Unique transactions:", netherlands_transactions, ",Unique customers:", netherlands_customers)
+cat("Australia - Unique transactions:", australia_transactions, ",Unique customers:", australia_customers)
+```
+## Question 5
+**Identifying customers who made a refund**
+```{r}
+refund_data <- filtered_data %>%
+  filter(grepl("^[C]", InvoiceNo)) 
+
+#check the result
+head(refund_data$InvoiceNo)
+```
+**Counting the number of such customers and storing their IDs in a vector called `cust_refund`**
+```{r}
+cust_refund <- unique(refund_data$CustomerID[!is.na(refund_data$CustomerID)])
+
+#Counting the number
+refund_customer_count <- length(cust_refund)
+cat("Number of customers who made refunds:", refund_customer_count, "\n")
+```
+## Question 6
+**1. Create a variable called `Sales` by multiplying `Quantity` and `UnitPrice`.**
+```{r}
+filtered_data$Sales <- filtered_data$Quantity * filtered_data$UnitPrice
+
+# check the result
+head(filtered_data[, c("Quantity", "UnitPrice", "Sales")])
+```
+**2. Calculate the total sales amount for transactions where `CustomerID` is missing.**
+```{r}
+missing_customer_data <- filtered_data %>%
+  filter(is.na(CustomerID))
+
+# Counting the number
+total_sales_missing_customer <- sum(missing_customer_data$Sales, na.rm = TRUE)
+cat("Total sales amount for transactions with missing CustomerID:", total_sales_missing_customer)
+```
+# PART II:
+## Question 7
+**Use the `glimpse()` function to display basic details about the `gapminder` dataset**
+```{r}
+glimpse(gapminder)
+```
+**How many rows and columns there are in the data set and which of the variables are factors？**
+
+- The gapminder dataset contains 1,704 rows and 6 columns.
+- In this dataset, there are 2 variables that are factors which is `country` and `continent`.
+- The remaining 4 variables are: `year` (integer), `lifeExp` (numeric), `pop` (integer), and `gdpPercap` (numeric).
+
+## Question 8
+**Recreating the boxplots of the distribution of life expectancy in each continent**
+```{r}
+ggplot(gapminder, aes(x = continent, y = lifeExp)) +
+  geom_boxplot() +
+  labs(
+    title = "Life Expectancy on Five Continents",
+    x = "Continent", 
+    y = "Life expectancy at birth, by year",
+    caption = "Source: Gapminder"
+  ) 
+```
+
+## Question 9
+**Looking at the previous plot, which continent has the highest median life expectancy?**
+
+Oceania has the highest median life expectancy among the five continents.
+
+**Which part of the boxplot can we determine this from?**
+
+The median life expectancy can be determined by examining the thick horizontal line in the middle of each box. This line represents the median (50th percentile) of the data distribution for each continent.

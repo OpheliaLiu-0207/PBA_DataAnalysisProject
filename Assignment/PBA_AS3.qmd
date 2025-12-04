@@ -1,0 +1,274 @@
+---
+title: "PBA_AS3"
+author: "Yung Hsi Liu_114078509"
+format:
+  pdf:
+    toc: true                    
+    number-sections: true        
+    papersize: A4
+    geometry:
+      - margin=1in
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+library(tidyverse)
+library(ggplot2)
+library(broom)
+```
+
+# Question 1
+
+## Rubric: Qmd file compiling & loading data
+
+```{r}
+turnout <- read_csv("https://bit.ly/3RFo38k")
+glimpse(turnout)
+```
+
+## Rubric: Indicating years in the data and number of states
+
+```{r}
+turnout$year |> 
+  unique() |> 
+  sort()
+
+turnout$state |> 
+  n_distinct()
+```
+
+**Data Description:** The dataset contains **three election years: 2006, 2008, and 2010** and **42 different states** across the United States.
+
+# Question 2
+
+## Rubric: Boxplot & informative labels
+
+```{r}
+#| fig-align: center
+#| fig-width: 6
+#| fig-height: 3
+
+turnout <- turnout |>
+  mutate(is_black_candidate = if_else(black_candidate == 1, "Yes", "No"))
+  
+turnout_box <- ggplot(turnout, aes(x = is_black_candidate, y = black_turnout)) +
+  geom_boxplot(fill = "indianred1") +
+  labs(
+    x = "One or more Black candidates",
+    y = "Voter turnout (Black voters)"
+  ) +
+  theme_minimal()
+
+turnout_box
+```
+
+## Description of relationship
+
+The boxplot reveals a clear **positive relationship** between the presence of Black candidates and Black voter turnout. When one or more Black candidates are running (Yes), the first quartile, median, and third quartile turnout is noticeably higher compared to elections without Black candidates (No).
+
+# Question 3
+
+## Rubric: lm output & coefficient table
+
+```{r}
+lm_1 <- lm(black_turnout ~ black_candidate, data = turnout)
+
+lm_1 |>
+  broom::tidy() |>
+  select(term, estimate) |>  
+  knitr::kable(digits = 2)
+```
+
+## Rubric: Interpretation of Coefficients
+
+When there is no Black candidate running (`black_candidate = 0`), the expected Black voter turnout is 0.39. When black_candidate changes from 0 to 1, predicted turnout increases by 0.06 (6 percentage points).
+
+## Rubric: R² calculation
+
+```{r}
+lm_1.sum <- summary(lm_1)
+lm_1.sum$r.squared
+```
+
+## Rubric: Interpretation of R²
+
+The R² value is approximately 0.014 , which means that the presence of a Black candidate explains about 1.4% of the variation in Black voter turnout.
+
+## Rubric: Conclusions
+
+The presence of a Black candidate has a small positive effect on Black voter turnout (an increase of about 6%), but the model’s explanatory power is very limited — it accounts for only about 1.4% of the variation in turnout. This suggests that other factors beyond candidate race play a much larger role in influencing voter participation.
+
+# Question 4
+
+## Rubric: Scatter plot
+
+```{r}
+#| fig-align: center
+#| fig-width: 6
+#| fig-height: 4
+
+turnout <- turnout |>
+  mutate(is_black_candidate = if_else(black_candidate == 1, 
+                                       "Coethnic candidate", 
+                                       "No coethnic candidate"))
+  
+turnout_scatter <- ggplot(turnout, aes(x = black_share, y = black_turnout, 
+                                        color = is_black_candidate)) +
+  geom_point(alpha = 0.7) +
+  labs(
+    x = "Share of Black voting-age population",
+    y = "Black voter turnout",
+    color = "Candidate Type"
+  ) +
+  theme_minimal()
+
+turnout_scatter
+```
+
+## Rubric: Conclusions about the plots
+
+The graph shows that Black voter turnout does not strongly increase with a higher share of the Black voting-age population. However, districts with larger Black populations are more likely to have a Black (coethnic) candidate running.
+
+# Question 5
+
+## Rubric: lm output & coefficient table
+
+```{r}
+lm_2 <- lm(black_turnout ~ black_share, data = turnout)
+
+lm_2 |>
+  broom::tidy() |>
+  select(term, estimate) |>  
+  knitr::kable(digits = 2)
+```
+
+## Rubric: Interpretation of Coefficients
+
+When the Black voting-age population share is 0, the expected Black voter turnout is 0.38. For each one-unit increase in the share of Black voting-age population, the expected Black voter turnout increases by about 0.20.
+
+## Rubric: R² calculation
+
+```{r}
+lm_2.sum <- summary(lm_2)
+lm_2.sum$r.squared
+```
+
+## Rubric: Interpretation of R²
+
+The R² value is approximately 0.028, meaning that the share of Black voting-age population explains about 2.8% of the variation in Black voter turnout.
+
+## Rubric: Conclusions
+
+There is a small positive relationship between the share of the Black voting-age population and Black voter turnout, but the model explains very little of the overall variation — suggesting that other factors beyond population share have a stronger influence on turnout.
+
+## Rubric: Computing and interpreting RMSEs
+
+```{r}
+glance(lm_1)$sigma
+glance(lm_2)$sigma
+```
+
+The RMSE for the coethnic candidate model is 0.1710, and for the district demographics model it is 0.1697. Since the second model has a slightly smaller RMSE, it produces slightly more accurate predictions of Black voter turnout.
+
+However, the difference is very small, indicating that both models predict turnout with similar accuracy. This level of error suggests that while the models capture some general trends, they are not highly accurate predictors of turnout.
+
+# Question 6
+
+## Rubric: lm output & coefficient table
+
+```{r}
+lm_3 <- lm(black_turnout ~ black_candidate + black_share, data = turnout)
+
+lm_3 |>
+  broom::tidy() |>
+  select(term, estimate) |>  
+  knitr::kable(digits = 2)
+```
+
+## Rubric: Interpretation of Coefficients
+
+The coefficient for black_candidate (-0.01) indicates that, after accounting for district demographics, having a Black candidate is associated with a 1 percentage point lower predicted turnout on average, though this effect is very small and likely not statistically significant.
+
+The coefficient for black_share (0.21) means that for every one-unit increase in the share of the Black voting-age population, the predicted Black voter turnout increases by about 0.21, holding the presence of a Black candidate constant.
+
+## Rubric: R² and  adj. R²
+
+```{r}
+lm_3.sum <- summary(lm_3)
+lm_3.sum$r.squared
+lm_3.sum$adj.r.squared
+```
+
+## Rubric: Evaluation of R² and  adj. R²
+
+The model’s R² is 0.029, and the adjusted R² is 0.027. This means that together, candidate co-ethnicity and district demographics explain about 2.9% of the variation in Black voter turnout. It suggests that this model provides little improvement.
+
+## Rubric: Conclusions
+
+The relationship between black_share and black_turnout remains positive and of similar magnitude to the previous regression, indicating that districts with a larger Black population tend to have higher turnout. However, the overall model fit is weak, suggesting that other factors beyond demographics and candidate race likely drive turnout differences.
+
+# Question 7
+
+## Rubric: Interpreting the intercept and argumenting about substantive importance
+The intercept (0.38) represents the expected Black voter turnout when both predictors — black_share and black_candidate — are equal to zero. In this case, it implies that in a district with no Black residents and no Black candidate, the predicted turnout among Black voters would be 38%.
+
+However, this scenario is not substantively meaningful because a district with zero Black population cannot have a measurable Black voter turnout. Therefore, while the intercept is mathematically necessary for the regression line, it is not of substantive interest in this context.
+
+# Question 8
+
+## Rubric: Discussion
+
+In Q3, the coefficient for black_candidate is 0.06, indicating that districts with a Black candidate have, on average, about 6% higher Black voter turnout. However, this model does not control for district demographics and may therefore overestimate the effect of candidate co-ethnicity.
+
+In Q6, after adding black_share, the coefficient for black_candidate becomes -0.01, meaning that once population composition is controlled for, the apparent positive relationship between having a Black candidate and turnout essentially disappears. The R² increases from 0.0135 to 0.0285, showing that much of the earlier relationship was actually due to confounding — Black candidates tend to run in districts with larger Black populations, which already have higher turnout rates.
+
+Overall, the two models reach different conclusions: the simple model (Q3) suggests a positive effect, but the multiple regression model (Q6) shows that this relationship is very weak once demographic factors are taken into account.
+
+I prefer the multiple regression model because it controls for confounding factors and provides a more realistic understanding of voting behavior, even though its overall explanatory power remains limited.
+
+# Question 9
+
+## Rubric: lm output
+
+```{r}
+lm_states <- lm(black_turnout ~ state, data = turnout)
+
+lm_states |>
+  broom::tidy() |>
+  select(term, estimate) |>  
+  knitr::kable(digits = 2)
+```
+
+## Rubric: Explaining what R does with categorical variables in regression
+
+When a categorical variable like state is included in a regression, R automatically creates a set of dummy variables — one for each state, except for one reference (baseline) category.
+
+In the output above, the intercept (0.55) represents the average Black voter turnout in the reference state (AK). All other state coefficients show how much higher or lower turnout is compared to Alaska.
+
+## Rubric: Interpreting the coefficients
+
+For example, the coefficient for stateAL is -0.12, meaning that the predicted Black turnout in Alabama is 0.12 lower than in Alaska.
+
+So the expected turnout in Alabama is 0.55 - 0.12 = 0.43.
+Similarly, stateCA = -0.15 means turnout in California is 0.15 lower than in Alaska.
+
+## Rubric: Running and interpreting coefficients from the model without intercept
+
+```{r}
+lm_states_no_intercept <- lm(black_turnout ~ state - 1, data = turnout)
+
+lm_states_no_intercept |>
+  broom::tidy() |>
+  select(term, estimate) |>  
+  knitr::kable(digits = 2)
+```
+
+When the model is run without an intercept, R gives the mean turnout for each state directly, instead of comparing to a reference.
+
+
+For example, stateAK = 0.55 means the average Black turnout in Alaska is 0.55, while stateAL = 0.43 means Alabama’s average is 0.43.
+
+
+In this version, every coefficient represents that state’s actual average turnout — not a difference.
+
+

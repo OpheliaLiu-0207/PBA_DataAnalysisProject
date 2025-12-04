@@ -1,0 +1,155 @@
+---
+title: "PBA_AS4"
+author: "Yung Hsi Liu_114078509"
+format:
+  pdf:
+    toc: true                    
+    number-sections: true        
+    papersize: A4
+    geometry:
+      - margin=1in
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+library(tidyverse)
+library(ggplot2)
+```
+
+# Question 1
+
+## Rubric: Qmd file rendering
+
+```{r}
+rags <- read_csv("https://bit.ly/3GYRblb")
+glimpse(rags)
+```
+
+## Rubric: New variables
+
+```{r}
+rags <- rags |>
+  mutate(
+    treatment=if_else(condition2 == 1, "Rags to Riches", "Control"),
+    optimist=if_else(optimism_index >= 3, "Optimist", "Pessimist")
+  )
+```
+
+## Rubric: Correct mobility_diff tibble
+
+```{r}
+mobility_diff <- rags |>
+  group_by(treatment) |>
+  summarize(mean_mobility = mean(mobility,na.rm=TRUE)) |>
+  pivot_wider(names_from = treatment, values_from = mean_mobility) |>
+  mutate(ATE = `Rags to Riches` - Control) |> #欄位名稱若有空格，要用`包起來
+  select(Control, `Rags to Riches`, ATE)
+
+mobility_diff
+```
+
+## Rubric: Write-up and interpretation
+
+The estimated ATE is 0.06, indicating that “Rags to Riches” reported slightly stronger beliefs in economic mobility than those in the control group.
+
+Although the effect size is modest, it suggests that viewing Rags-to-riches TV shows can make individuals somewhat more optimistic about the possibility of achieving economic success in the United States.
+
+# Question 2
+## Rubric: Correct `ate_boots`
+```{r}
+library(infer)
+set.seed(2023)
+
+ate_boots<- rags |>
+  specify(mobility ~ treatment) |>
+  generate(reps = 1000, type="bootstrap") |>
+  calculate(stat="diff in means", order = c("Rags to Riches", "Control"))
+
+ate_boots
+```
+
+## Rubric: Correct `ate_ci_95`
+
+```{r}
+ate_ci_95 <- ate_boots |>
+  get_confidence_interval(level=0.95, type="percentile");ate_ci_95
+```
+
+## Rubric: Plot of the bootstrap distribution and CI
+```{r}
+ate_boots |>
+  ggplot(aes(x = stat))+
+  geom_histogram(aes(y=after_stat(density)), color="white")+
+  geom_vline(xintercept = unlist(ate_ci_95), linewidth = 1)
+```
+
+## Rubric:Write up
+The 95% bootstrap confidence interval for the `stat` ranges from 0.036 to 0.086. Because this entire interval is above zero, it indicates that the data provide evidence that the “Rags to Riches” treatment has a positive effect on beliefs about economic mobility.
+
+# Question 3
+## Rubric: Interpretation of CIs
+A 95% confidence interval means that if we repeated the sampling many times, 95% of the intervals would capture the true value. For a particular calculated confidence interval, the truth is either in it or not.
+
+## Rubric: Discussion of 100% confidence interval.
+A 100% confidence interval is possible, but it would be something like “from −∞ to +∞,” which always contains the truth but is completely useless.
+
+# Question 4
+## Rubric: `ate_optimist` tibble
+
+```{r}
+ate_optimist <- rags |>
+  group_by(treatment, optimist) |>
+  summarize(mean_mobility = mean(mobility)) |>
+  pivot_wider(names_from = treatment, values_from = mean_mobility) |>
+  mutate(ATE=`Rags to Riches` - Control) |>
+  select(optimist, ATE) |>
+  pivot_wider(names_from = optimist, values_from = ATE) |>
+  rename(ATE_Opt = Optimist, ATE_Pes = Pessimist) |>
+  mutate(ATE_Diff = ATE_Opt - ATE_Pes)
+
+ate_optimist
+```
+## Rubric: Reporting the effect and interpretation
+The ATE_Diff is 0.111, meaning the treatment had a much stronger positive impact on Optimists than on Pessimists. Optimists showed an ATE of 0.087, while Pessimists showed a slightly negative ATE of −0.024. 
+
+This suggests that the “Rags to Riches” message increases beliefs in mobility mainly among those who are already optimistic, while it has little to no positive effect on pessimistic respondents.
+
+# Question 5
+## Rubric: `ate_optimist_boots` tibble
+```{r}
+set.seed(2023)
+
+ate_optimist_boots <- rags |>
+  rep_slice_sample(prop = 1, replace = TRUE, reps = 1000) |>
+  group_by(replicate, treatment, optimist) |>
+  summarize(mean_mobility = mean(mobility)) |>
+  pivot_wider(names_from = treatment, values_from = mean_mobility) |>
+  mutate(ATE=`Rags to Riches` - Control) |>
+  select(replicate, optimist, ATE) |>
+  pivot_wider(names_from = optimist, values_from = ATE) |>
+  rename(ATE_Opt = Optimist, ATE_Pes = Pessimist) |>
+  mutate(ATE_Diff = ATE_Opt - ATE_Pes)
+
+ate_optimist_boots
+```
+
+## Rubric: Correct `ate_optimist_ci_95`
+
+```{r}
+ate_optimist_ci_95 <- ate_optimist_boots |>
+  get_confidence_interval(level=0.95, type="percentile");ate_optimist_ci_95
+```
+
+## Rubric: Plot of the bootstrap distribution and CI
+```{r}
+ate_optimist_boots |>
+  ggplot(aes(x=ATE_Diff))+
+  geom_histogram(aes(y = after_stat(density)), color="white")+
+  geom_vline(xintercept = unlist(ate_optimist_ci_95), linewidth = 1, color = "red")
+
+ate_optimist_ci_95
+```
+
+## Rubric: Write up
+
+The 95% bootstrap confidence interval for the interaction effect ranges from 0.055 to 0.164, and this interval does not include zero. This means the difference between Optimists and Pessimists is statistically meaningful: the treatment increases mobility beliefs more for Optimists than for Pessimists. In other words, the effect of the “Rags to Riches” message depends on respondents’ optimism levels.

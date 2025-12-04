@@ -1,0 +1,303 @@
+---
+title: "PBA_AS2"
+author: "Yung Hsi Liu_114078509"
+format:
+  pdf:
+    toc: true                    
+    number-sections: true        
+    papersize: A4
+    geometry:
+      - margin=1in
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+library(tidyverse)
+library(ggplot2)
+```
+# Question 1
+## Rubric: Importing both datasets 
+```{r}
+air99 <- read_csv("https://bit.ly/3c4AHbL")
+air12 <- read_csv("https://bit.ly/3nZicL2")
+```
+## Rubric: Combining, mutating and cleaning the datasets
+```{r}
+air_combined <- bind_rows(
+  air99 %>% mutate(Year = 1999),
+  air12 %>% mutate(Year = 2012)
+) %>%
+  rename(PM2.5 = Sample.Value) %>%
+  drop_na()
+```
+## Rubric: Structure validation
+```{r}
+glimpse(air_combined)
+```
+# Question 2
+## Rubric: Summary statistics
+```{r}
+pm_summary <- air_combined %>%
+  group_by(Year) %>%
+  summarize(
+    mean = mean(PM2.5, na.rm = TRUE),
+    median = median(PM2.5, na.rm = TRUE),
+    min = min(PM2.5, na.rm = TRUE),
+    max = max(PM2.5, na.rm = TRUE)
+  )
+```
+## Rubric: Data cleaning and updating air_combined.
+```{r}
+air_combined <- air_combined %>%
+  filter(PM2.5 > 0)
+```
+# Question 3
+## Rubric: Creating a correct boxplot
+**Note:** This analysis follows the written instructions by assigning "Year" to the X-axis.
+```{r fig.align='center', fig.width=10, fig.height=3}
+ggplot(air_combined, aes(x = as.factor(Year), y = log2(PM2.5), fill = as.factor(Year))) +
+  geom_boxplot() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(
+    x = "Year",
+    y = "Log2 PM2.5",
+    title = "Boxplot of PM Values in 1999 and 2012"
+  ) +
+  theme_minimal()
+```
+## Rubric: Analysis and interpretation
+The boxplot reveals significant changes in PM2.5 distribution between 1999 and 2012:
+
+**Shifts in Median Values**: The median PM2.5 level decreased notably from 1999 to 2012. This represents a reduction in actual PM2.5 concentrations, indicating substantial improvement in overall air quality.
+
+**Changes in Data Distribution**: The most striking difference lies in the outliers. The 2012 data shows considerably more outliers than 1999, with extreme values extending to both higher and lower ranges. 
+
+**Overall Assessment**: The downward shift in median values clearly demonstrates air quality improvement. However, the persistent presence of outliers—particularly the widespread distribution of high values in 2012—indicates that certain geographic areas continue to experience significant pollution challenges. This suggests that targeted interventions may still be necessary for specific regions.
+
+# Question 4
+## Rubric: Subsetting air_combined
+```{r}
+ny_data <- air_combined %>%
+  filter(State.Code == 36)
+```
+## Rubric: Creating site.code
+```{r}
+ny_data <- ny_data %>%
+  mutate(site.code = paste0(
+    sprintf("%03d", as.integer(County.Code)), ".",
+    sprintf("%04d", as.integer(Site.ID)) 
+  ))           
+
+#check the result
+head(ny_data %>% select(County.Code, Site.ID, site.code))
+```
+# Question 5
+## Rubric: Grouping data by site.code & Identifying monitors active in both years
+```{r}
+active_both_year <- ny_data %>%
+  group_by(site.code) %>%
+  filter(n_distinct(Year) == 2) %>%
+  pull(site.code) %>%
+  unique()
+```
+# Question 6
+## Rubric: Identifying the most active monitor
+```{r}
+most_active_monitor <- ny_data %>%
+  filter(site.code %in% active_both_year) %>%  
+  count(site.code, sort = TRUE) %>%            
+  slice(1)                                     
+
+# check the result
+most_active_monitor
+```
+# Question 7
+## Rubric: Subsetting for monitor 101.0003
+```{r}
+air101.0003 <- ny_data %>%
+  filter(site.code == "101.0003")
+```
+## Rubric: Correcting date manipulation
+```{r}
+air101.0003 <- air101.0003 %>%
+  mutate(
+    Date = lubridate::ymd(Date),           
+    day_of_year = lubridate::yday(Date)   
+  )
+
+# check the result
+head(air101.0003 %>% select(Date, day_of_year, Year, PM2.5))
+```
+# Question 8
+## Rubric: Accurating scatter plot reproduction
+```{r fig.align='center'}
+ggplot(air101.0003, aes(x = day_of_year, y = PM2.5)) +
+  geom_point() +
+  facet_wrap(~ Year) +
+  labs(
+    x = "Day of the Year",
+    y = "PM2.5"
+  ) 
+```
+## Rubric: Insightful Analysis
+The scatter plot reveals important patterns in PM2.5 levels at monitor 101.0003:
+
+**Overall Air Quality**: PM2.5 at monitor 101.0003 is substantially lower and less variable in 2012 than in 1999. In 1999, values span roughly 3–25 with several days above 15–20. In 2012, most observations cluster around 3–8 and seldom exceed 10. This indicates a downward shift in central tendency and a narrower spread of daily concentrations.
+
+**Data Collection Patterns**: The 1999 data are concentrated in the latter half of the year, while 2012 observations cluster in the first half and are fewer in number. This suggests differences in the sampling window or monitoring frequency across years.
+
+**Implications**: The plot indicates lower PM2.5 in 2012, but part of the difference may arise from differences in the sampling window and monitoring frequency at the same site, rather than purely reflecting true air-quality gains. In addition, the non-overlapping seasons sampled in 1999 vs. 2012 can overstate the improvement. A fairer comparison would align overlapping months or explicitly model seasonality.
+
+# Question 9
+## Rubric: Knitting and Creating `balance_table`
+```{r}
+lalonde <- read_csv("https://bit.ly/3sJJKuk")
+
+balance_table <- lalonde %>%
+  group_by(treat) %>%          
+  summarize(
+    age = mean(age, na.rm = TRUE),
+    education = mean(education, na.rm = TRUE),
+    black = mean(black, na.rm = TRUE),
+    hispanic = mean(hispanic, na.rm = TRUE),
+    married = mean(married, na.rm = TRUE),
+    nodegree = mean(nodegree, na.rm = TRUE),
+    N = n()
+  )
+
+knitr::kable(
+  balance_table,
+  digits = 2,
+  col.names = c("Group", "Age", "Education", "Black", "Hispanic", "Married",
+                "No Degree", "Sample Size"),
+  caption = "Covariate Balance Table: Treatment vs Control Groups"
+)
+```
+## Rubric: Comments
+The covariates appear reasonably balanced between treatment and control groups. Age and education show minimal differences, while proportions of demographic characteristics (race, ethnicity, marital status, education completion) differ by less than 10 percentage points.
+
+# Question 10
+## Rubric: Creating `change` variable
+```{r}
+lalonde <- lalonde %>%
+  mutate(change = re78 - re75)
+```
+## Rubric: `trt_change` object
+```{r}
+trt_change <- lalonde %>% 
+  filter(treat == 1) %>%
+  summarize(avg_change = mean(change, na.rm = TRUE))
+
+trt_change
+```
+## Rubric: `ctr_change` object
+```{r}
+ctr_change <- lalonde %>% 
+  filter(treat == 0) %>%
+  summarize(avg_change = mean(change, na.rm = TRUE))
+
+ctr_change
+```
+## Rubric: `ate` object
+```{r}
+ate <- tibble(
+  ate = trt_change$avg_change - ctr_change$avg_change
+)
+
+ate
+```
+## Rubric: Results
+From 1975 to 1978, the treatment group's earnings increased by an average of $2,910 , compared to $2,063 for the control group. The ATE of $847 indicates that the job training program increased participants' earnings by approximately $847 compared to those who did not receive training. While both groups experienced earnings growth—likely due to general economic conditions— the treatment group's larger increase demonstrates that the program was effective in improving economic outcomes for participants.
+
+# Question 11
+## Rubric: Explaining the answer
+Each individual has two potential outcomes: their earnings change with job training versus without job training. The fundamental problem of causal inference is that we can only observe one outcome per person— either they received training or they did not. This makes it impossible to calculate the training's effect on any individual by comparing what happened to what would have happened.
+
+The randomized experiment solves this at the group level by comparing average earnings changes between those who received training and those who did not, allowing us to estimate the average treatment effect despite not being able to determine individual effects.
+
+# Question 12
+## Rubric: Explaining the answer
+Using `re75` is **invalid** because it represents a pre-treatment outcome, measured before the job training program occurred. This violates the basic temporal requirement for causal inference—outcomes must occur after treatment. Using pre-treatment earnings as the outcome is not a valid research design.
+
+Using `re78` represents a **cross-sectional comparison** approach, comparing post-treatment earnings between groups. While technically valid in an RCT, this design is susceptible to confounding from baseline differences. Even with randomization, groups may differ in initial earnings by chance, and these differences would be reflected in `re78`, making it harder to isolate the treatment effect.
+
+# Question 13
+## Rubric: `ate_dropout` object
+```{r}
+ate_dropout <- lalonde %>%
+  mutate(
+    treatment = ifelse(treat == 1, "Treated", "Control"),
+    dropout = ifelse(nodegree == 1, "Dropped out", "Finished HS")
+  ) %>%
+  group_by(dropout, treatment) %>%
+  summarize(avg_change = mean(change, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(
+    names_from = treatment,
+    values_from = avg_change
+  ) %>%
+  mutate(ATE = Treated - Control) %>%
+  select(dropout, Treated, Control, ATE)
+```
+## Rubric: Nicely formatted table
+```{r}
+knitr::kable(
+  ate_dropout,
+  digits = 2,
+  col.names = c("Education Status", "Treated", "Control", "ATE"),
+  caption = "Average Treatment Effects by High School Completion Status"
+)
+```
+## Rubric: Brief write-up
+The job training program worked much better for high school graduates than for dropouts. Graduates saw their earnings increase by $2,105 compared to only $450 for dropouts—nearly a $1,700 difference. This shows clear evidence of heterogeneous treatment effects: the same program had very different impacts depending on whether someone finished high school. The training seems to work best when building on an existing educational foundation.
+
+# Question 14
+## Rubric: `age_group` variable
+```{r}
+lalonde <- lalonde %>%
+  mutate(
+    age_group = case_when(
+      age <= 30 ~ "30 and under",
+      age >= 31 & age <= 40 ~ "31 - 40",
+      age >= 41 ~ "Over 40"
+    )
+  )
+```
+## Rubric: `ate_age` object
+```{r}
+ate_age <- lalonde %>%
+  mutate(
+    treatment = ifelse(treat == 1, "Treated", "Control")
+  ) %>%
+  group_by(age_group, treatment) %>%
+  summarize(avg_change = mean(change, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(
+    names_from = treatment,
+    values_from = avg_change
+  ) %>%
+  mutate(ATE = Treated - Control) %>%
+  select(age_group, Treated, Control, ATE)
+
+knitr::kable(
+  ate_age,
+  digits = 2,
+  col.names = c("Age Group", "Treated", "Control", "ATE"),
+  caption = "Average Treatment Effects by Age Group"
+)
+```
+
+# Question 15
+## Rubric:  `age_plot` ggplot object
+```{r}
+age_plot <- ggplot(ate_age, aes(x = age_group, y = ATE)) +
+  geom_col(fill = "steelblue") +
+  labs(
+    x = "Age Group",
+    y = "Average Treatment Effect ($)",
+    title = "Treatment Effects of Job Training by Age Group"
+  )
+
+age_plot
+```
+## Rubric:  Descriptions
+The results show a **inverted-U relationship** with age, where the middle-aged group (31-40) experiences the largest treatment effects around $2,758, while both younger (30 and under) and older (over 40) participants show smaller gains of approximately $600 and $128 respectively.
+
+This inverted-U pattern suggests that mid-career workers may be optimally positioned to benefit from training. They likely possess sufficient work experience to effectively apply new skills while maintaining enough career runway to recoup training investments. Younger workers may lack the experience to fully leverage training, while older workers face shorter remaining career spans or more entrenched work patterns.
